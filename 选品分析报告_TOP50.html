@@ -1,0 +1,2958 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amazon智能选品分析报告 - TOP50推荐</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background: #f5f7fa; 
+            color: #333;
+            line-height: 1.6;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        .header h1 { font-size: 28px; margin-bottom: 10px; }
+        .header p { opacity: 0.9; font-size: 14px; }
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .stat-item { text-align: center; }
+        .stat-value { font-size: 32px; font-weight: bold; }
+        .stat-label { font-size: 12px; opacity: 0.8; }
+        
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        
+        .filters {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .filters h3 { margin-bottom: 15px; color: #667eea; }
+        .filter-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .filter-tag {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid #e0e0e0;
+            background: white;
+        }
+        .filter-tag:hover, .filter-tag.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .product-list { display: flex; flex-direction: column; gap: 15px; }
+        
+        .product-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .product-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        }
+        
+        .product-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .rank {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        .rank.top3 { background: linear-gradient(135deg, #FFD700, #FFA500); color: white; }
+        .rank.top10 { background: linear-gradient(135deg, #C0C0C0, #A0A0A0); color: white; }
+        .rank.normal { background: #f0f0f0; color: #666; }
+        
+        .product-title { flex: 1; }
+        .product-title h3 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 4px;
+            word-break: break-all;
+        }
+        .product-title .translation {
+            font-size: 13px;
+            color: #888;
+        }
+        
+        .score-badge {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .metric {
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .metric-label {
+            font-size: 11px;
+            color: #888;
+            margin-top: 2px;
+        }
+        
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .tag {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .tag.high { background: #e3f2fd; color: #1976d2; }
+        .tag.medium { background: #fff3e0; color: #f57c00; }
+        .tag.low { background: #e8f5e9; color: #388e3c; }
+        
+        .reason {
+            background: #f0f7ff;
+            border-left: 4px solid #667eea;
+            padding: 12px 15px;
+            border-radius: 0 8px 8px 0;
+            font-size: 13px;
+            color: #555;
+        }
+        .reason strong { color: #667eea; }
+        
+        .category {
+            font-size: 12px;
+            color: #999;
+            margin-top: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .metrics { grid-template-columns: repeat(3, 1fr); }
+            .product-header { flex-wrap: wrap; }
+            .stats { gap: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Amazon智能选品分析报告</h1>
+        <p>基于4854条关键词数据 | 6维度评分模型 | TOP50精选推荐</p>
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-value">4854</div>
+                <div class="stat-label">总关键词数</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">3</div>
+                <div class="stat-label">高分产品(≥60)</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">418</div>
+                <div class="stat-label">高增长产品</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">22</div>
+                <div class="stat-label">平均得分</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="filters">
+            <h3>快速筛选</h3>
+            <div class="filter-tags">
+                <span class="filter-tag active" onclick="filterProducts('all')">全部</span>
+                <span class="filter-tag" onclick="filterProducts('高需求')">高需求</span>
+                <span class="filter-tag" onclick="filterProducts('爆发增长')">爆发增长</span>
+                <span class="filter-tag" onclick="filterProducts('蓝海')">蓝海</span>
+                <span class="filter-tag" onclick="filterProducts('高转化')">高转化</span>
+                <span class="filter-tag" onclick="filterProducts('低广告成本')">低广告成本</span>
+                <span class="filter-tag" onclick="filterProducts('汽配')">汽配类目</span>
+                <span class="filter-tag" onclick="filterProducts('玩具')">玩具类目</span>
+            </div>
+        </div>
+        
+        <div class="product-list" id="productList">
+
+            <div class="product-card" data-tags="高需求 | 爆发增长 | 低竞争 | 浅蓝" data-category="Automotive Parts & Accessories; Health, Household ">
+                <div class="product-header">
+                    <div class="rank top3">1</div>
+                    <div class="product-title">
+                        <h3>all cars magic pen</h3>
+                        <div class="translation">汽车魔笔</div>
+                    </div>
+                    <div class="score-badge">75分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">59,468</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+505%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">1.9%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">170</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">349</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$10</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$1.50</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">1,148</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">高需求</span><span class="tag high">爆发增长</span><span class="tag low">低竞争</span><span class="tag low">浅蓝</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>爆发式增长(505%)，市场热度极高；极度蓝海(需供比170)；竞品较少(349个)；大市场需求(59,468月搜)
+                </div>
+                
+                <div class="category">类目：Automotive Parts & Accessories; Health, Household </div>
+            </div>
+
+            <div class="product-card" data-tags="中高需求 | 爆发增长 | 低竞争 | 浅蓝" data-category="Automotive Parts & Accessories">
+                <div class="product-header">
+                    <div class="rank top3">2</div>
+                    <div class="product-title">
+                        <h3>all cars magic pen for car scratches</h3>
+                        <div class="translation">适用于所有汽车的划痕修复魔术笔</div>
+                    </div>
+                    <div class="score-badge">72分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">32,630</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+615%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">3.3%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">99</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">330</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$10</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$nan</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">1,074</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">中高需求</span><span class="tag high">爆发增长</span><span class="tag low">低竞争</span><span class="tag low">浅蓝</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>爆发式增长(615%)，市场热度极高；极度蓝海(需供比99)；竞品较少(330个)；中等市场(32,630月搜)
+                </div>
+                
+                <div class="category">类目：Automotive Parts & Accessories</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 低竞争 | 蓝海" data-category="Automotive Parts & Accessories; Tools & Home Impro">
+                <div class="product-header">
+                    <div class="rank top3">3</div>
+                    <div class="product-title">
+                        <h3>hho generator kit for cars</h3>
+                        <div class="translation">hho 汽车发电机组</div>
+                    </div>
+                    <div class="score-badge">63分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">1,746</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+446%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">5.4%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">29</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">60</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$324</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$1.52</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">94</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag low">低竞争</span><span class="tag low">蓝海</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>高速增长(446%)，趋势明确；蓝海市场(需供比29)；竞品极少(60个)
+                </div>
+                
+                <div class="category">类目：Automotive Parts & Accessories; Tools & Home Impro</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 低竞争 | 浅蓝 | 中高转化" data-category="Automotive Parts & Accessories">
+                <div class="product-header">
+                    <div class="rank top10">4</div>
+                    <div class="product-title">
+                        <h3>bug and tar remover for cars</h3>
+                        <div class="translation">汽车除虫剂和焦油去除剂</div>
+                    </div>
+                    <div class="score-badge">56分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">13,870</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+104%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">9.8%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">50</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">280</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$15</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$1.89</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">1,358</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag low">低竞争</span><span class="tag low">浅蓝</span><span class="tag high">中高转化</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>稳健增长(104%)；蓝海市场(需供比50)；竞品较少(280个)；转化良好(9.8%购买率)
+                </div>
+                
+                <div class="category">类目：Automotive Parts & Accessories</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 竞争适中 | 浅蓝 | 中高转化 | 低广告成本" data-category="Automotive Parts & Accessories">
+                <div class="product-header">
+                    <div class="rank top10">5</div>
+                    <div class="product-title">
+                        <h3>gas saver device for gas cars</h3>
+                        <div class="translation">汽油车节气装置</div>
+                    </div>
+                    <div class="score-badge">53分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">2,171</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+175%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">11.2%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">6</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">347</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$10</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.64</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">242</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag medium">竞争适中</span><span class="tag low">浅蓝</span><span class="tag high">中高转化</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>稳健增长(175%)；竞争适中(需供比6)；竞品较少(347个)；转化良好(11.2%购买率)
+                </div>
+                
+                <div class="category">类目：Automotive Parts & Accessories</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 低竞争 | 蓝海 | 中高转化 | 价格甜点 | 低广告成本" data-category="-">
+                <div class="product-header">
+                    <div class="rank top10">6</div>
+                    <div class="product-title">
+                        <h3>melissa and doug pull back cars</h3>
+                        <div class="translation">梅丽莎和道格拉回汽车</div>
+                    </div>
+                    <div class="score-badge">53分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">1,396</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+178%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">9.5%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">11</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">123</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$18</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.50</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">132</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag low">低竞争</span><span class="tag low">蓝海</span><span class="tag high">中高转化</span><span class="tag low">价格甜点</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>稳健增长(178%)；蓝海市场(需供比11)；竞品极少(123个)；转化良好(9.5%购买率)
+                </div>
+                
+                <div class="category">类目：-</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 浅蓝 | 中高转化 | 价格甜点" data-category="Patio, Lawn & Garden; Automotive Parts & Accessori">
+                <div class="product-header">
+                    <div class="rank top10">7</div>
+                    <div class="product-title">
+                        <h3>under hood rodent repellent for cars</h3>
+                        <div class="translation">汽车引擎盖下的驱鼠剂</div>
+                    </div>
+                    <div class="score-badge">53分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">1,156</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+726%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">9.0%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">4</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">262</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$28</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$nan</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">104</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag low">浅蓝</span><span class="tag high">中高转化</span><span class="tag low">价格甜点</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>爆发式增长(726%)，市场热度极高；竞品较少(262个)；转化良好(9.0%购买率)；价格甜点($28)
+                </div>
+                
+                <div class="category">类目：Patio, Lawn & Garden; Automotive Parts & Accessori</div>
+            </div>
+
+            <div class="product-card" data-tags="高需求 | 低竞争 | 蓝海 | 低广告成本" data-category="Home & Kitchen; Electronics">
+                <div class="product-header">
+                    <div class="rank top10">8</div>
+                    <div class="product-title">
+                        <h3>radar detectors for cars</h3>
+                        <div class="translation">汽车雷达检测器</div>
+                    </div>
+                    <div class="score-badge">52分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">64,687</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+5%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">1.3%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">412</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">157</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$100</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.74</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">847</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">高需求</span><span class="tag low">低竞争</span><span class="tag low">蓝海</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>极度蓝海(需供比412)；竞品极少(157个)；大市场需求(64,687月搜)；广告成本低($0.74)
+                </div>
+                
+                <div class="category">类目：Home & Kitchen; Electronics</div>
+            </div>
+
+            <div class="product-card" data-tags="高需求 | 低竞争 | 蓝海" data-category="Baby; Automotive Parts & Accessories">
+                <div class="product-header">
+                    <div class="rank top10">9</div>
+                    <div class="product-title">
+                        <h3>booster seats for cars 40-100 lbs</h3>
+                        <div class="translation">用于 40-100 磅汽车的加高座椅</div>
+                    </div>
+                    <div class="score-badge">52分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">55,525</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+15%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">3.5%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">394</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">141</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$115</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$nan</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">1,949</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">高需求</span><span class="tag low">低竞争</span><span class="tag low">蓝海</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>极度蓝海(需供比394)；竞品极少(141个)；大市场需求(55,525月搜)
+                </div>
+                
+                <div class="category">类目：Baby; Automotive Parts & Accessories</div>
+            </div>
+
+            <div class="product-card" data-tags="中高需求 | 高增长 | 低竞争" data-category="Automotive Parts & Accessories; Health, Household ">
+                <div class="product-header">
+                    <div class="rank top10">10</div>
+                    <div class="product-title">
+                        <h3>water spot remover for cars</h3>
+                        <div class="translation">汽车水渍去除剂</div>
+                    </div>
+                    <div class="score-badge">52分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">31,641</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+74%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">4.3%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">14</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">2258</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$13</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$1.05</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">1,367</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">中高需求</span><span class="tag high">高增长</span><span class="tag low">低竞争</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>稳健增长(74%)；蓝海市场(需供比14)；中等市场(31,641月搜)
+                </div>
+                
+                <div class="category">类目：Automotive Parts & Accessories; Health, Household </div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 中高转化 | 价格甜点" data-category="Automotive Parts & Accessories; Sports & Outdoors">
+                <div class="product-header">
+                    <div class="rank normal">11</div>
+                    <div class="product-title">
+                        <h3>plastic restorer for cars exterior</h3>
+                        <div class="translation">汽车外饰塑料修复剂</div>
+                    </div>
+                    <div class="score-badge">52分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">2,132</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+681%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">12.7%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">3</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">681</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$17</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$nan</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">271</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag high">中高转化</span><span class="tag low">价格甜点</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>爆发式增长(681%)，市场热度极高；转化良好(12.7%购买率)；价格甜点($17)
+                </div>
+                
+                <div class="category">类目：Automotive Parts & Accessories; Sports & Outdoors</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 竞争适中 | 蓝海 | 价格甜点" data-category="Toys & Games">
+                <div class="product-header">
+                    <div class="rank normal">12</div>
+                    <div class="product-title">
+                        <h3>magnetic cars that transform</h3>
+                        <div class="translation">可变形的磁性汽车</div>
+                    </div>
+                    <div class="score-badge">52分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">1,492</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+391%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">1.0%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">10</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">150</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$15</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$2.03</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">15</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag medium">竞争适中</span><span class="tag low">蓝海</span><span class="tag low">价格甜点</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>高速增长(391%)，趋势明确；竞争适中(需供比10)；竞品极少(150个)；价格甜点($15)
+                </div>
+                
+                <div class="category">类目：Toys & Games</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 竞争适中 | 蓝海 | 低广告成本" data-category="-">
+                <div class="product-header">
+                    <div class="rank normal">13</div>
+                    <div class="product-title">
+                        <h3>elf spf lip gloss</h3>
+                        <div class="translation">精灵 SPF 唇膏</div>
+                    </div>
+                    <div class="score-badge">51分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">732</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+423%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">4.5%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">6</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">116</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$7</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.67</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">33</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag medium">竞争适中</span><span class="tag low">蓝海</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>高速增长(423%)，趋势明确；竞争适中(需供比6)；竞品极少(116个)；广告成本低($0.67)
+                </div>
+                
+                <div class="category">类目：-</div>
+            </div>
+
+            <div class="product-card" data-tags="高增长 | 蓝海 | 高转化" data-category="Health, Household & Baby Care; Sports & Outdoors; ">
+                <div class="product-header">
+                    <div class="rank normal">14</div>
+                    <div class="product-title">
+                        <h3>braces lip protector</h3>
+                        <div class="translation">牙套护唇</div>
+                    </div>
+                    <div class="score-badge">51分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">631</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+81%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">21.2%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">4</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">140</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$13</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$1.56</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">134</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">高增长</span><span class="tag low">蓝海</span><span class="tag high">高转化</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>稳健增长(81%)；竞品极少(140个)；高转化(21.2%购买率)
+                </div>
+                
+                <div class="category">类目：Health, Household & Baby Care; Sports & Outdoors; </div>
+            </div>
+
+            <div class="product-card" data-tags="高增长 | 竞争适中 | 浅蓝 | 高转化 | 价格甜点 | 低广告成本" data-category="-">
+                <div class="product-header">
+                    <div class="rank normal">15</div>
+                    <div class="product-title">
+                        <h3>wiggle cars</h3>
+                        <div class="translation">扭扭车</div>
+                    </div>
+                    <div class="score-badge">51分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">1,538</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+66%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">24.1%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">8</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">201</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$48</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.79</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">371</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">高增长</span><span class="tag medium">竞争适中</span><span class="tag low">浅蓝</span><span class="tag high">高转化</span><span class="tag low">价格甜点</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>稳健增长(66%)；竞争适中(需供比8)；竞品较少(201个)；高转化(24.1%购买率)
+                </div>
+                
+                <div class="category">类目：-</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 低竞争 | 蓝海 | 价格甜点 | 低广告成本" data-category="-">
+                <div class="product-header">
+                    <div class="rank normal">16</div>
+                    <div class="product-title">
+                        <h3>ms fritter cars</h3>
+                        <div class="translation">nan</div>
+                    </div>
+                    <div class="score-badge">51分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">1,504</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+169%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">0.3%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">33</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">46</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$20</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.20</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">5</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag low">低竞争</span><span class="tag low">蓝海</span><span class="tag low">价格甜点</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>稳健增长(169%)；蓝海市场(需供比33)；竞品极少(46个)；价格甜点($20)
+                </div>
+                
+                <div class="category">类目：-</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 低竞争 | 蓝海 | 价格甜点 | 低广告成本" data-category="-">
+                <div class="product-header">
+                    <div class="rank normal">17</div>
+                    <div class="product-title">
+                        <h3>lock smith tools kit for cars</h3>
+                        <div class="translation">汽车锁匠工具套件</div>
+                    </div>
+                    <div class="score-badge">51分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">1,174</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+200%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">0.9%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">13</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">89</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$40</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.27</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">10</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag low">低竞争</span><span class="tag low">蓝海</span><span class="tag low">价格甜点</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>高速增长(200%)，趋势明确；蓝海市场(需供比13)；竞品极少(89个)；价格甜点($40)
+                </div>
+                
+                <div class="category">类目：-</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 浅蓝 | 价格甜点 | 低广告成本" data-category="-">
+                <div class="product-header">
+                    <div class="rank normal">18</div>
+                    <div class="product-title">
+                        <h3>disney cars goodie bags</h3>
+                        <div class="translation">迪士尼汽车礼包</div>
+                    </div>
+                    <div class="score-badge">51分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">883</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+531%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">2.8%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">2</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">367</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$24</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.86</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">24</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag low">浅蓝</span><span class="tag low">价格甜点</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>爆发式增长(531%)，市场热度极高；竞品较少(367个)；价格甜点($24)；广告成本低($0.86)
+                </div>
+                
+                <div class="category">类目：-</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 浅蓝 | 价格甜点 | 低广告成本" data-category="Beauty & Personal Care">
+                <div class="product-header">
+                    <div class="rank normal">19</div>
+                    <div class="product-title">
+                        <h3>neux lip plumper</h3>
+                        <div class="translation">Neux 唇部丰盈产品</div>
+                    </div>
+                    <div class="score-badge">50分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">659</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+371%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">0.4%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">3</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">226</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$23</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.72</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">3</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag low">浅蓝</span><span class="tag low">价格甜点</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>高速增长(371%)，趋势明确；竞品较少(226个)；价格甜点($23)；广告成本低($0.72)
+                </div>
+                
+                <div class="category">类目：Beauty & Personal Care</div>
+            </div>
+
+            <div class="product-card" data-tags="高增长 | 低竞争 | 浅蓝 | 价格甜点 | 低广告成本" data-category="Toys & Games; Baby; Tools & Home Improvement">
+                <div class="product-header">
+                    <div class="rank normal">20</div>
+                    <div class="product-title">
+                        <h3>disney cars easter</h3>
+                        <div class="translation">迪士尼汽车复活节</div>
+                    </div>
+                    <div class="score-badge">50分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">15,538</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+96%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">0.4%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">60</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">260</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$23</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.75</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">67</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">高增长</span><span class="tag low">低竞争</span><span class="tag low">浅蓝</span><span class="tag low">价格甜点</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>稳健增长(96%)；极度蓝海(需供比60)；竞品较少(260个)；价格甜点($23)
+                </div>
+                
+                <div class="category">类目：Toys & Games; Baby; Tools & Home Improvement</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 竞争适中 | 浅蓝 | 低广告成本" data-category="Clothing, Shoes & Jewelry; Arts, Crafts & Sewing">
+                <div class="product-header">
+                    <div class="rank normal">21</div>
+                    <div class="product-title">
+                        <h3>cars croc charms</h3>
+                        <div class="translation">汽车鳄鱼吊饰</div>
+                    </div>
+                    <div class="score-badge">50分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">2,814</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+206%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">3.1%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">7</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">380</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$13</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.75</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">86</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag medium">竞争适中</span><span class="tag low">浅蓝</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>高速增长(206%)，趋势明确；竞争适中(需供比7)；竞品较少(380个)；广告成本低($0.75)
+                </div>
+                
+                <div class="category">类目：Clothing, Shoes & Jewelry; Arts, Crafts & Sewing</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 竞争适中 | 浅蓝 | 价格甜点 | 低广告成本" data-category="Automotive Parts & Accessories; Home & Kitchen">
+                <div class="product-header">
+                    <div class="rank normal">22</div>
+                    <div class="product-title">
+                        <h3>gay pride magnets for cars</h3>
+                        <div class="translation">汽车用同性恋自豪感磁铁</div>
+                    </div>
+                    <div class="score-badge">50分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">2,673</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+373%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">0.9%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">9</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">283</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$17</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.73</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">24</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag medium">竞争适中</span><span class="tag low">浅蓝</span><span class="tag low">价格甜点</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>高速增长(373%)，趋势明确；竞争适中(需供比9)；竞品较少(283个)；价格甜点($17)
+                </div>
+                
+                <div class="category">类目：Automotive Parts & Accessories; Home & Kitchen</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 低竞争 | 蓝海 | 价格甜点 | 低广告成本" data-category="Toys & Games">
+                <div class="product-header">
+                    <div class="rank normal">23</div>
+                    <div class="product-title">
+                        <h3>candylab cars</h3>
+                        <div class="translation">糖果实验室汽车</div>
+                    </div>
+                    <div class="score-badge">50分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">1,296</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+128%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">2.7%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">18</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">74</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$24</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.46</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">35</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag low">低竞争</span><span class="tag low">蓝海</span><span class="tag low">价格甜点</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>稳健增长(128%)；蓝海市场(需供比18)；竞品极少(74个)；价格甜点($24)
+                </div>
+                
+                <div class="category">类目：Toys & Games</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 浅蓝 | 价格甜点 | 低广告成本" data-category="-">
+                <div class="product-header">
+                    <div class="rank normal">24</div>
+                    <div class="product-title">
+                        <h3>disney cars gift bag</h3>
+                        <div class="translation">迪士尼汽车礼品袋</div>
+                    </div>
+                    <div class="score-badge">50分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">1,177</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+741%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">1.7%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">3</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">379</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$22</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.60</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">20</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag low">浅蓝</span><span class="tag low">价格甜点</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>爆发式增长(741%)，市场热度极高；竞品较少(379个)；价格甜点($22)；广告成本低($0.60)
+                </div>
+                
+                <div class="category">类目：-</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 竞争适中 | 蓝海" data-category="-">
+                <div class="product-header">
+                    <div class="rank normal">25</div>
+                    <div class="product-title">
+                        <h3>baby in this bitchsticker for cars</h3>
+                        <div class="translation">婴儿在这个汽车婊子贴纸</div>
+                    </div>
+                    <div class="score-badge">50分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">1,125</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+704%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">3.4%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">6</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">185</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$6</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$nan</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">38</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag medium">竞争适中</span><span class="tag low">蓝海</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>爆发式增长(704%)，市场热度极高；竞争适中(需供比6)；竞品极少(185个)
+                </div>
+                
+                <div class="category">类目：-</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 蓝海 | 价格甜点 | 低广告成本" data-category="-">
+                <div class="product-header">
+                    <div class="rank normal">26</div>
+                    <div class="product-title">
+                        <h3>amazon gift cars</h3>
+                        <div class="translation">亚马逊礼品车</div>
+                    </div>
+                    <div class="score-badge">50分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">468</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+234%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">7.1%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">2</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">194</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$50</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.77</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">33</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag low">蓝海</span><span class="tag low">价格甜点</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>高速增长(234%)，趋势明确；竞品极少(194个)；价格甜点($50)；广告成本低($0.77)
+                </div>
+                
+                <div class="category">类目：-</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 蓝海 | 中高转化 | 价格甜点" data-category="-">
+                <div class="product-header">
+                    <div class="rank normal">27</div>
+                    <div class="product-title">
+                        <h3>bulk lip balm 100 count</h3>
+                        <div class="translation">散装润唇膏 100 支</div>
+                    </div>
+                    <div class="score-badge">49分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">886</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+155%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">11.7%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">5</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">181</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$32</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$1.10</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">103</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag low">蓝海</span><span class="tag high">中高转化</span><span class="tag low">价格甜点</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>稳健增长(155%)；竞品极少(181个)；转化良好(11.7%购买率)；价格甜点($32)
+                </div>
+                
+                <div class="category">类目：-</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 竞争适中 | 蓝海 | 中高转化" data-category="-">
+                <div class="product-header">
+                    <div class="rank normal">28</div>
+                    <div class="product-title">
+                        <h3>burts bees guava lip shimmer</h3>
+                        <div class="translation">Burts Bees 番石榴唇釉</div>
+                    </div>
+                    <div class="score-badge">49分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">886</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+155%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">12.6%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">8</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">117</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$13</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$1.92</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">112</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag medium">竞争适中</span><span class="tag low">蓝海</span><span class="tag high">中高转化</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>稳健增长(155%)；竞争适中(需供比8)；竞品极少(117个)；转化良好(12.6%购买率)
+                </div>
+                
+                <div class="category">类目：-</div>
+            </div>
+
+            <div class="product-card" data-tags="增长 | 低竞争 | 蓝海" data-category="Movies & TV">
+                <div class="product-header">
+                    <div class="rank normal">29</div>
+                    <div class="product-title">
+                        <h3>riding in cars with boys</h3>
+                        <div class="translation">和男孩一起坐车</div>
+                    </div>
+                    <div class="score-badge">49分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">14,731</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+29%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">3.3%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">169</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">87</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$4</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$1.02</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">483</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag low">增长</span><span class="tag low">低竞争</span><span class="tag low">蓝海</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>极度蓝海(需供比169)；竞品极少(87个)
+                </div>
+                
+                <div class="category">类目：Movies & TV</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 高转化 | 低广告成本" data-category="Health, Household & Baby Care; Automotive Parts & ">
+                <div class="product-header">
+                    <div class="rank normal">30</div>
+                    <div class="product-title">
+                        <h3>cars bandaids</h3>
+                        <div class="translation">汽车绷带</div>
+                    </div>
+                    <div class="score-badge">49分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">1,611</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+146%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">34.8%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">2</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">665</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$4</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.77</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">560</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag high">高转化</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>稳健增长(146%)；高转化(34.8%购买率)；广告成本低($0.77)
+                </div>
+                
+                <div class="category">类目：Health, Household & Baby Care; Automotive Parts & </div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 浅蓝 | 高转化" data-category="-">
+                <div class="product-header">
+                    <div class="rank normal">31</div>
+                    <div class="product-title">
+                        <h3>old spice air freshener for cars</h3>
+                        <div class="translation">旧香料汽车空气清新剂</div>
+                    </div>
+                    <div class="score-badge">49分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">449</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+221%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">22.9%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">1</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">444</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$13</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$nan</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">103</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag low">浅蓝</span><span class="tag high">高转化</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>高速增长(221%)，趋势明确；竞品较少(444个)；高转化(22.9%购买率)
+                </div>
+                
+                <div class="category">类目：-</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 低竞争 | 蓝海" data-category="-">
+                <div class="product-header">
+                    <div class="rank normal">32</div>
+                    <div class="product-title">
+                        <h3>lip filler ice pack</h3>
+                        <div class="translation">唇部填充冰袋</div>
+                    </div>
+                    <div class="score-badge">48分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">561</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+301%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">0.4%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">11</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">51</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$9</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$1.03</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">2</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag low">低竞争</span><span class="tag low">蓝海</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>高速增长(301%)，趋势明确；蓝海市场(需供比11)；竞品极少(51个)
+                </div>
+                
+                <div class="category">类目：-</div>
+            </div>
+
+            <div class="product-card" data-tags="高需求 | 增长 | 竞争适中" data-category="Automotive Parts & Accessories">
+                <div class="product-header">
+                    <div class="rank normal">33</div>
+                    <div class="product-title">
+                        <h3>ceramic coating for cars</h3>
+                        <div class="translation">汽车陶瓷涂层</div>
+                    </div>
+                    <div class="score-badge">48分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">111,674</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+34%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">3.2%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">8</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">14123</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$110</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$1.04</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">3,551</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">高需求</span><span class="tag low">增长</span><span class="tag medium">竞争适中</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>竞争适中(需供比8)；大市场需求(111,674月搜)
+                </div>
+                
+                <div class="category">类目：Automotive Parts & Accessories</div>
+            </div>
+
+            <div class="product-card" data-tags="增长 | 低竞争 | 蓝海" data-category="Automotive Parts & Accessories; Office Products; T">
+                <div class="product-header">
+                    <div class="rank normal">34</div>
+                    <div class="product-title">
+                        <h3>instagram stickers for cars</h3>
+                        <div class="translation">汽车的 instagram 贴纸</div>
+                    </div>
+                    <div class="score-badge">48分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">13,391</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+27%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">4.9%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">75</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">178</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$9</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$1.88</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">655</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag low">增长</span><span class="tag low">低竞争</span><span class="tag low">蓝海</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>极度蓝海(需供比75)；竞品极少(178个)
+                </div>
+                
+                <div class="category">类目：Automotive Parts & Accessories; Office Products; T</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 竞争适中 | 价格甜点" data-category="Automotive Parts & Accessories; Industrial & Scien">
+                <div class="product-header">
+                    <div class="rank normal">35</div>
+                    <div class="product-title">
+                        <h3>nano coating spray for cars</h3>
+                        <div class="translation">用于汽车的纳米涂层喷雾</div>
+                    </div>
+                    <div class="score-badge">48分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">6,569</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+139%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">1.0%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">7</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">934</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$20</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$1.22</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">63</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag medium">竞争适中</span><span class="tag low">价格甜点</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>稳健增长(139%)；竞争适中(需供比7)；价格甜点($20)
+                </div>
+                
+                <div class="category">类目：Automotive Parts & Accessories; Industrial & Scien</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 低竞争 | 浅蓝 | 价格甜点 | 低广告成本" data-category="Toys & Games; Clothing, Shoes & Jewelry; Baby">
+                <div class="product-header">
+                    <div class="rank normal">36</div>
+                    <div class="product-title">
+                        <h3>pixar cars easter</h3>
+                        <div class="translation">皮克斯汽车复活节</div>
+                    </div>
+                    <div class="score-badge">48分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">5,654</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+147%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">0.6%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">17</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">339</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$38</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.75</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">32</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag low">低竞争</span><span class="tag low">浅蓝</span><span class="tag low">价格甜点</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>稳健增长(147%)；蓝海市场(需供比17)；竞品较少(339个)；价格甜点($38)
+                </div>
+                
+                <div class="category">类目：Toys & Games; Clothing, Shoes & Jewelry; Baby</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 低竞争 | 浅蓝" data-category="Toys & Games">
+                <div class="product-header">
+                    <div class="rank normal">37</div>
+                    <div class="product-title">
+                        <h3>big kids cars to drive 9-12 years</h3>
+                        <div class="translation">9-12岁的大孩子汽车驾驶</div>
+                    </div>
+                    <div class="score-badge">48分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">2,678</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+548%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">0.7%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">12</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">216</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$370</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$nan</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">18</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag low">低竞争</span><span class="tag low">浅蓝</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>爆发式增长(548%)，市场热度极高；蓝海市场(需供比12)；竞品较少(216个)
+                </div>
+                
+                <div class="category">类目：Toys & Games</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 低竞争 | 蓝海 | 价格甜点" data-category="-">
+                <div class="product-header">
+                    <div class="rank normal">38</div>
+                    <div class="product-title">
+                        <h3>apple peony lip oil</h3>
+                        <div class="translation">苹果牡丹唇油</div>
+                    </div>
+                    <div class="score-badge">47分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">861</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+142%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">0.3%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">11</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">76</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$15</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$1.23</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">3</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag low">低竞争</span><span class="tag low">蓝海</span><span class="tag low">价格甜点</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>稳健增长(143%)；蓝海市场(需供比11)；竞品极少(76个)；价格甜点($15)
+                </div>
+                
+                <div class="category">类目：-</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 竞争适中 | 蓝海 | 价格甜点" data-category="-">
+                <div class="product-header">
+                    <div class="rank normal">39</div>
+                    <div class="product-title">
+                        <h3>colorescience lip shine spf 35</h3>
+                        <div class="translation">colorescience 唇彩 spf 35</div>
+                    </div>
+                    <div class="score-badge">47分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">569</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+306%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">1.1%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">10</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">60</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$42</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$10.00</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">7</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag medium">竞争适中</span><span class="tag low">蓝海</span><span class="tag low">价格甜点</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>高速增长(306%)，趋势明确；竞争适中(需供比9)；竞品极少(60个)；价格甜点($42)
+                </div>
+                
+                <div class="category">类目：-</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 低竞争 | 蓝海" data-category="-">
+                <div class="product-header">
+                    <div class="rank normal">40</div>
+                    <div class="product-title">
+                        <h3>sun bum banana lip balm</h3>
+                        <div class="translation">sun bum 香蕉润唇膏</div>
+                    </div>
+                    <div class="score-badge">47分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">528</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+277%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">1.0%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">16</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">34</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$8</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$1.09</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">5</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag low">低竞争</span><span class="tag low">蓝海</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>高速增长(277%)，趋势明确；蓝海市场(需供比16)；竞品极少(34个)
+                </div>
+                
+                <div class="category">类目：-</div>
+            </div>
+
+            <div class="product-card" data-tags="高需求 | 低竞争" data-category="Automotive Parts & Accessories; Health, Household ">
+                <div class="product-header">
+                    <div class="rank normal">41</div>
+                    <div class="product-title">
+                        <h3>microfiber towels for cars</h3>
+                        <div class="translation">汽车用超细纤维毛巾</div>
+                    </div>
+                    <div class="score-badge">47分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">158,321</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+12%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">7.4%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">20</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">8125</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$7</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$1.27</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">11,652</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">高需求</span><span class="tag low">低竞争</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>蓝海市场(需供比19)；大市场需求(158,321月搜)
+                </div>
+                
+                <div class="category">类目：Automotive Parts & Accessories; Health, Household </div>
+            </div>
+
+            <div class="product-card" data-tags="高需求 | 低竞争 | 价格甜点 | 低广告成本" data-category="Toys & Games; Office Products">
+                <div class="product-header">
+                    <div class="rank normal">42</div>
+                    <div class="product-title">
+                        <h3>lego cars</h3>
+                        <div class="translation">乐高汽车</div>
+                    </div>
+                    <div class="score-badge">47分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">123,722</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+-12%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">2.2%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">24</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">5189</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$28</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.55</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">2,784</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">高需求</span><span class="tag low">低竞争</span><span class="tag low">价格甜点</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>蓝海市场(需供比24)；大市场需求(123,722月搜)；价格甜点($28)；广告成本低($0.55)
+                </div>
+                
+                <div class="category">类目：Toys & Games; Office Products</div>
+            </div>
+
+            <div class="product-card" data-tags="高需求 | 低竞争 | 价格甜点 | 低广告成本" data-category="Toys & Games; Baby; Clothing, Shoes & Jewelry">
+                <div class="product-header">
+                    <div class="rank normal">43</div>
+                    <div class="product-title">
+                        <h3>cars toys disney pixar</h3>
+                        <div class="translation">汽车 玩具 迪斯尼 皮克斯</div>
+                    </div>
+                    <div class="score-badge">47分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">82,337</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+1%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">3.0%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">35</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">2345</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$22</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.76</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">2,437</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">高需求</span><span class="tag low">低竞争</span><span class="tag low">价格甜点</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>蓝海市场(需供比35)；大市场需求(82,337月搜)；价格甜点($22)；广告成本低($0.76)
+                </div>
+                
+                <div class="category">类目：Toys & Games; Baby; Clothing, Shoes & Jewelry</div>
+            </div>
+
+            <div class="product-card" data-tags="高需求 | 低竞争 | 价格甜点 | 低广告成本" data-category="Toys & Games">
+                <div class="product-header">
+                    <div class="rank normal">44</div>
+                    <div class="product-title">
+                        <h3>matchbox cars</h3>
+                        <div class="translation">火柴盒汽车</div>
+                    </div>
+                    <div class="score-badge">47分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">56,886</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+11%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">3.1%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">18</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">3192</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$15</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.91</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">1,746</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">高需求</span><span class="tag low">低竞争</span><span class="tag low">价格甜点</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>蓝海市场(需供比18)；大市场需求(56,886月搜)；价格甜点($15)；广告成本低($0.91)
+                </div>
+                
+                <div class="category">类目：Toys & Games</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 中高转化 | 价格甜点" data-category="Automotive Parts & Accessories">
+                <div class="product-header">
+                    <div class="rank normal">45</div>
+                    <div class="product-title">
+                        <h3>bug remover for cars exterior</h3>
+                        <div class="translation">用于汽车外部的除虫剂</div>
+                    </div>
+                    <div class="score-badge">47分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">14,054</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+297%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">8.2%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">3</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">4726</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$17</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$2.31</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">1,159</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag high">中高转化</span><span class="tag low">价格甜点</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>高速增长(297%)，趋势明确；转化良好(8.2%购买率)；价格甜点($17)
+                </div>
+                
+                <div class="category">类目：Automotive Parts & Accessories</div>
+            </div>
+
+            <div class="product-card" data-tags="高增长 | 低竞争 | 浅蓝 | 价格甜点" data-category="Clothing, Shoes & Jewelry">
+                <div class="product-header">
+                    <div class="rank normal">46</div>
+                    <div class="product-title">
+                        <h3>cars crocs</h3>
+                        <div class="translation">汽车鳄鱼</div>
+                    </div>
+                    <div class="score-badge">47分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">13,086</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+74%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">0.1%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">46</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">284</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$49</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$1.17</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">20</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">高增长</span><span class="tag low">低竞争</span><span class="tag low">浅蓝</span><span class="tag low">价格甜点</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>稳健增长(74%)；蓝海市场(需供比46)；竞品较少(284个)；价格甜点($49)
+                </div>
+                
+                <div class="category">类目：Clothing, Shoes & Jewelry</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 低竞争 | 浅蓝 | 低广告成本" data-category="Toys & Games; Home & Kitchen; Baby">
+                <div class="product-header">
+                    <div class="rank normal">47</div>
+                    <div class="product-title">
+                        <h3>disney cars easter basket</h3>
+                        <div class="translation">迪士尼汽车复活节篮子</div>
+                    </div>
+                    <div class="score-badge">47分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">7,474</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+152%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">1.1%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">32</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">230</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$10</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.53</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">86</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag low">低竞争</span><span class="tag low">浅蓝</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>稳健增长(152%)；蓝海市场(需供比32)；竞品较少(230个)；广告成本低($0.53)
+                </div>
+                
+                <div class="category">类目：Toys & Games; Home & Kitchen; Baby</div>
+            </div>
+
+            <div class="product-card" data-tags="高增长 | 低竞争 | 蓝海 | 价格甜点" data-category="Automotive Parts & Accessories; Health, Household ">
+                <div class="product-header">
+                    <div class="rank normal">48</div>
+                    <div class="product-title">
+                        <h3>bug remover for cars</h3>
+                        <div class="translation">汽车除虫剂</div>
+                    </div>
+                    <div class="score-badge">47分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">2,786</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+97%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">7.3%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">16</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">178</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$17</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$2.40</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">204</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">高增长</span><span class="tag low">低竞争</span><span class="tag low">蓝海</span><span class="tag low">价格甜点</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>稳健增长(97%)；蓝海市场(需供比16)；竞品极少(178个)；价格甜点($17)
+                </div>
+                
+                <div class="category">类目：Automotive Parts & Accessories; Health, Household </div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 低广告成本" data-category="Automotive Parts & Accessories">
+                <div class="product-header">
+                    <div class="rank normal">49</div>
+                    <div class="product-title">
+                        <h3>spray coating agent for cars</h3>
+                        <div class="translation">汽车喷涂剂</div>
+                    </div>
+                    <div class="score-badge">47分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">2,416</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+1626%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">1.1%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">1</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">1945</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$10</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$0.82</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">28</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag low">低广告成本</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>爆发式增长(1626%)，市场热度极高；广告成本低($0.82)
+                </div>
+                
+                <div class="category">类目：Automotive Parts & Accessories</div>
+            </div>
+
+            <div class="product-card" data-tags="爆发增长 | 浅蓝 | 价格甜点" data-category="-">
+                <div class="product-header">
+                    <div class="rank normal">50</div>
+                    <div class="product-title">
+                        <h3>cars bubble wand</h3>
+                        <div class="translation">汽车泡泡魔杖</div>
+                    </div>
+                    <div class="score-badge">47分</div>
+                </div>
+                
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">1,192</div>
+                        <div class="metric-label">月搜索量</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">+751%</div>
+                        <div class="metric-label">增长率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">0.8%</div>
+                        <div class="metric-label">购买率</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">5</div>
+                        <div class="metric-label">需供比</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">240</div>
+                        <div class="metric-label">竞品数</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$32</div>
+                        <div class="metric-label">均价</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$1.62</div>
+                        <div class="metric-label">PPC</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">10</div>
+                        <div class="metric-label">预估月销</div>
+                    </div>
+                </div>
+                
+                <div class="tags"><span class="tag high">爆发增长</span><span class="tag low">浅蓝</span><span class="tag low">价格甜点</span></div>
+                
+                <div class="reason">
+                    <strong>推荐理由：</strong>爆发式增长(751%)，市场热度极高；竞品较少(240个)；价格甜点($32)
+                </div>
+                
+                <div class="category">类目：-</div>
+            </div>
+
+        </div>
+    </div>
+    
+    <script>
+        function filterProducts(type) {
+            const cards = document.querySelectorAll('.product-card');
+            const tags = document.querySelectorAll('.filter-tag');
+            
+            // 更新标签样式
+            tags.forEach(tag => {
+                tag.classList.remove('active');
+                if (tag.textContent.includes(type === 'all' ? '全部' : 
+                    type === '汽配' ? '汽配' : 
+                    type === '玩具' ? '玩具' : type)) {
+                    tag.classList.add('active');
+                }
+            });
+            
+            // 筛选产品
+            cards.forEach(card => {
+                const cardTags = card.getAttribute('data-tags');
+                const category = card.getAttribute('data-category');
+                
+                if (type === 'all') {
+                    card.style.display = 'block';
+                } else if (type === '汽配') {
+                    card.style.display = category.includes('Automotive') ? 'block' : 'none';
+                } else if (type === '玩具') {
+                    card.style.display = category.includes('Toys') ? 'block' : 'none';
+                } else {
+                    card.style.display = cardTags.includes(type) ? 'block' : 'none';
+                }
+            });
+        }
+    </script>
+</body>
+</html>
